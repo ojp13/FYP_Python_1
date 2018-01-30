@@ -145,4 +145,5 @@ for i in range(numMoves):
 for i in range(numMoves):
     plt.scatter(list_moves[i].total_distX, list_moves[i].total_distY, s = 5)
 
+
 plt.show()
