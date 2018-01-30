@@ -25,6 +25,9 @@
     <Compile Include="FYP_DataProcessing_2.py" />
     <Compile Include="FYP_DataProcessing_3.py" />
     <Compile Include="list_Comp_Practice.py" />
+    <Compile Include="FYP_ML_Algorithms.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Movement_Class.py" />
     <Compile Include="twos_Comp.py" />
   </ItemGroup>
