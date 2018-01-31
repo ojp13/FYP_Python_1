@@ -139,11 +139,11 @@ list_moves = [[] for i in range(numMoves)] # Creates an empty list to store obje
 for i in range(numMoves):
     list_moves[i] = Movement_Class.Movement(move_acc_array[:,i,0], move_acc_array[:,i,1], move_acc_array[:,i,2], i+1)
 
-#for i in range(numMoves):
-#    list_moves[i].label_Movement()
-
 for i in range(numMoves):
     plt.scatter(list_moves[i].total_distX, list_moves[i].total_distY, s = 5)
 
+plt.xlabel('Displacement in x direction [arbitrary units]')
+plt.ylabel('Displacement in y direction [arbitrary units]')
+plt.legend(loc='upper left')
 
 plt.show()
