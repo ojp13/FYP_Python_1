@@ -58,10 +58,12 @@ accYSmoothed = signal.lfilter(b, a, accY)
 accZSmoothed = signal.lfilter(b, a, accZ)
 
 
-#plt.scatter(range(len(accXSmoothed)), accXSmoothed, s = 0.1)
-#plt.scatter(range(len(accYSmoothed)), accYSmoothed, s = 0.1)
-#plt.scatter(range(len(accZSmoothed)), accZSmoothed, s = 0.1)
-
+#plt.scatter(range(len(accXSmoothed)), accXSmoothed, s = 0.1, color = 'red', label = 'x component')
+#plt.scatter(range(len(accYSmoothed)), accYSmoothed, s = 0.1, color = 'blue', label = 'y component')
+#plt.scatter(range(len(accZSmoothed)), accZSmoothed, s = 0.1, color = 'green', label = 'z component')
+#plt.xlabel('Sample number')
+#plt.ylabel('Acceleration (arbitrary unit)')
+#plt.legend(loc='upper left')
 #plt.show()
 
 ### Trying to tell when a movement is happening is acceleration data
@@ -95,10 +97,11 @@ for i in range(seqReq - 1, numRows):    # Return 1 if only last n = seqReq value
 
 #plotxaxisIndex = range(0, numRows-seqReq+1)
 
-#plt.scatter(plotxaxisIndex, moveIndSmoothaccX, s = 0.1)
-#plt.scatter(plotxaxisIndex, moveIndSmoothaccY, s = 0.1)
-#plt.scatter(plotxaxisIndex, moveIndSmoothaccZ, s = 0.1)
-
+#plt.scatter(plotxaxisIndex, moveIndSmoothaccX, s = 0.1, color = 'red', label = 'x component')
+#plt.scatter(plotxaxisIndex, moveIndSmoothaccY, s = 0.1, color = 'blue', label = 'y component')
+#plt.scatter(plotxaxisIndex, moveIndSmoothaccZ, s = 0.1, color = 'grey', label = 'z component')
+#plt.xlabel('Sample number')
+#plt.legend(loc='upper left')
 #plt.show()
 
 moveIndSmoothaccAll = np.zeros([numRows - seqReq + 1], dtype = int) # Single array to demonstrate when movement is happening in accelerometer data
@@ -143,6 +146,23 @@ list_moves = [[] for i in range(numMoves)] # Creates an empty list to store obje
 for i in range(numMoves):
     list_moves[i] = Movement_Class.Movement(move_acc_array[:,i,0], move_acc_array[:,i,1], move_acc_array[:,i,2], i+1)
 
+# Plotting values for one movement
+
+plt.scatter(range(len(list_moves[1].accX)), list_moves[1].accX, s = 0.5, color = 'red', label = 'x component')
+plt.scatter(range(len(list_moves[1].accY)), list_moves[1].accY, s = 0.5, color = 'blue', label = 'y component')
+plt.scatter(range(len(list_moves[1].accZ)), list_moves[1].accZ, s = 0.5, color = 'green', label = 'z component')
+plt.xlabel('Sample number')
+plt.ylabel('Acceleration (arbitrary unit)')
+plt.legend(loc='upper left')
+plt.show()
+
+plt.scatter(range(len(list_moves[11].accX)), list_moves[11].accX, s = 0.5, color = 'red', label = 'x component')
+plt.scatter(range(len(list_moves[11].accY)), list_moves[11].accY, s = 0.5, color = 'blue', label = 'y component')
+plt.scatter(range(len(list_moves[11].accZ)), list_moves[11].accZ, s = 0.5, color = 'green', label = 'z component')
+plt.xlabel('Sample number')
+plt.ylabel('Acceleration (arbitrary unit)')
+plt.legend(loc='upper left')
+plt.show()
 
 # Plotting displacements
 #for i in range(numMoves):
