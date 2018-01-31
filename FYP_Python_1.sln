@@ -5,6 +5,11 @@ VisualStudioVersion = 15.0.27130.2003
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "FYP_Python_1", "FYP_Python_1\FYP_Python_1.pyproj", "{76D5E857-212F-4A13-85D9-AF8E5053DFD7}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2E1AD41A-72EB-4597-9FAE-9CE517CFACF9}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\..\WindowsFormsApplication3V6.6.1\WindowsFormsApplication3\DataFiles\test3.csv = ..\..\..\WindowsFormsApplication3V6.6.1\WindowsFormsApplication3\DataFiles\test3.csv
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
