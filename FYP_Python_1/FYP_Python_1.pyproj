@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>76d5e857-212f-4a13-85d9-af8e5053dfd7</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>FYP_DataProcessing_3.py</StartupFile>
+    <StartupFile>FYP_ML_Algorithms.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -28,7 +28,11 @@
     <Compile Include="FYP_ML_Algorithms.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Plot_Decision_Regions.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Movement_Class.py" />
+    <Compile Include="Perceptron_Class.py" />
     <Compile Include="twos_Comp.py" />
   </ItemGroup>
   <ItemGroup>

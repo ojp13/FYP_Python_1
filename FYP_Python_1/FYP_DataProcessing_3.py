@@ -6,13 +6,17 @@ from twos_Comp import twos_comp
 from scipy import signal
 import Movement_Class
 
+
+
 ### Reading in data from CSV
 
-filename = 'test_3.csv'
+filename = 'test3.csv'
 
 with open(filename, newline='') as f:
     rawDataFile = csv.reader(f)
     rawData = list(rawDataFile)
+
+    f.close()
 
 numRows = len(rawData)      
 numCols = len(rawData[0])
@@ -62,7 +66,7 @@ accZSmoothed = signal.lfilter(b, a, accZ)
 
 ### Trying to tell when a movement is happening is acceleration data
 
-threshold = 4000    # Value above which we believe a movement to be happening in the acceleration data
+threshold = 7000    # Value above which we believe a movement to be happening in the acceleration data
 seqReq = 50         # Sequence Required: Number dictating how many previous values have to have been above the threshold to be sure
                     # a movement is actually happening and it isn't just noise
 
@@ -139,11 +143,26 @@ list_moves = [[] for i in range(numMoves)] # Creates an empty list to store obje
 for i in range(numMoves):
     list_moves[i] = Movement_Class.Movement(move_acc_array[:,i,0], move_acc_array[:,i,1], move_acc_array[:,i,2], i+1)
 
+
+# Plotting displacements
+#for i in range(numMoves):
+#    plt.scatter(list_moves[i].total_distX, list_moves[i].total_distY, s = 5)
+
+#plt.xlabel('Displacement in x direction [arbitrary units]')
+#plt.ylabel('Displacement in y direction [arbitrary units]')
+#plt.legend(loc='upper left')
+
+#plt.show()
+
+# Creating a feature array for machine learning
+
+feature_array = np.zeros([numMoves, 3])
+
 for i in range(numMoves):
-    plt.scatter(list_moves[i].total_distX, list_moves[i].total_distY, s = 5)
+    feature_array[i,0] = list_moves[i].total_distX
+    feature_array[i,1] = list_moves[i].total_distY
+    feature_array[i,2] = list_moves[i].total_distZ
 
-plt.xlabel('Displacement in x direction [arbitrary units]')
-plt.ylabel('Displacement in y direction [arbitrary units]')
-plt.legend(loc='upper left')
+print(feature_array)
 
-plt.show()
+np.savetxt('feature_data.csv', feature_array, delimiter = ",")
