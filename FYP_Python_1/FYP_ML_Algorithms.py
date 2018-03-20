@@ -34,9 +34,9 @@ target_values = np.zeros([num_moves], dtype = 'int') # Array of target values fo
 i = 0
 while i < 20:
     if i < 10:
-        target_values[i] = 1
-    else:
         target_values[i] = -1
+    else:
+        target_values[i] = 1
     
     i += 1
 
