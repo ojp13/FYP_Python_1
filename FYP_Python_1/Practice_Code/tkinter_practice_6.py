@@ -174,8 +174,7 @@ def addTopIndicator(what):
         tk.mainloop()
 
     elif what == "macd":
-        global topIndicator
-        global DatCounter
+####        global DatCounter
 
         topIndicator = "macd"
         DatCounter = 9000
@@ -211,7 +210,7 @@ def addBottomIndicator(what):
             group.append("rsi")
             group.append(periods)
 
-             = group     #rsi,14 now stored as top indicator
+            rsiQ = group     #rsi,14 now stored as top indicator
             datCounter = 9000
             print("Set bottom indicator to ", group)
             rsiQ.destroy()
@@ -221,8 +220,8 @@ def addBottomIndicator(what):
         tk.mainloop()
 
     elif what == "macd":
-        global bottomIndicator
-        global DatCounter
+####        global bottomIndicator
+##        global DatCounter
 
         bottomIndicator = "macd"
         DatCounter = 9000
