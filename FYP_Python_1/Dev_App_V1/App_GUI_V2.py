@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import math
 import time
+from twos_Comp import twos_comp
 
 LARGE_FONT = ("Verdana", 12)
 NORM_FONT = ("Verdana", 10)
@@ -34,7 +35,7 @@ port = 1
 start_byte1 = 'dd'
 start_byte2 = 'aa'
 start_byte3 = '55'
-start_bytes = start_byte1 + start_byte2 + start_byte3
+start_Bytes = start_byte1 + start_byte2 + start_byte3
 packet_length = 41      # 41 bytes of data sent each sample
 com = 'dev/rfcomm0'   # not sure if this line is important for bt or not
 BT_Object = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
@@ -54,44 +55,60 @@ def animate(i):
     a = plt.subplot2grid((9,6), (0,0), rowspan=3, colspan=6)
     plt.setp(a.get_xticklabels(), visible=False)
     a.set_ylabel("Linear Acc.")
+    a.set_ylim([-32768,32768])
     #Plot for angluar accelerations, start in 4th row, have same x axis as first plot
     a2 = plt.subplot2grid((9,6), (3,0), sharex=a, rowspan=3, colspan=6)
     plt.setp(a2.get_xticklabels(), visible=False)
     a2.set_ylabel("Angular Acc.")
+    a2.set_ylim([-32768,32768])
     #Plot for MMG readings
     a3 = plt.subplot2grid((9,6), (6,0), sharex=a, rowspan=3, colspan=6)
     a3.set_ylabel("MMG Signals")
+    a3.set_ylim([-32768,32768])
     a3.set_xlabel("Time")
 
     a.clear()
     a2.clear()
     a3.clear()
 
-    const = 100
+    const = 1000
     if len(IMU_Data[0]) < const:
-        a.scatter(timestamp[:], IMU_Data[0][:], label="x component")
-        a.scatter(timestamp[:], IMU_Data[1][:], label="y component")
-        a.scatter(timestamp[:], IMU_Data[2][:], label="z component")
-        a2.scatter(timestamp[:], IMU_Data[3][:], label="x component")
-        a2.scatter(timestamp[:], IMU_Data[4][:], label="y component")
-        a2.scatter(timestamp[:], IMU_Data[5][:], label="z component")
+        a.scatter(timestamp[:], IMU_Data[0][:], label="x component", s=10)
+        a.scatter(timestamp[:], IMU_Data[1][:], label="y component", s=10)
+        a.scatter(timestamp[:], IMU_Data[2][:], label="z component", s=10)
+        a2.scatter(timestamp[:], IMU_Data[3][:], label="x component", s=10)
+        a2.scatter(timestamp[:], IMU_Data[4][:], label="y component", s=10)
+        a2.scatter(timestamp[:], IMU_Data[5][:], label="z component", s=10)
     else:        
-        a.scatter(timestamp[-const:], IMU_Data[0][-const:], label="x component")
-        a.scatter(timestamp[-const:], IMU_Data[1][-const:], label="y component")
-        a.scatter(timestamp[-const:], IMU_Data[2][-const:], label="z component")
-        a2.scatter(timestamp[-const:], IMU_Data[3][-const:], label="x component")
-        a2.scatter(timestamp[-const:], IMU_Data[4][-const:], label="y component")
-        a2.scatter(timestamp[-const:], IMU_Data[5][-const:], label="z component")
+        a.scatter(timestamp[-const:], IMU_Data[0][-const:], label="x component", s=10)
+        a.scatter(timestamp[-const:], IMU_Data[1][-const:], label="y component", s=10)
+        a.scatter(timestamp[-const:], IMU_Data[2][-const:], label="z component", s=10)
+        a2.scatter(timestamp[-const:], IMU_Data[3][-const:], label="x component", s=10)
+        a2.scatter(timestamp[-const:], IMU_Data[4][-const:], label="y component", s=10)
+        a2.scatter(timestamp[-const:], IMU_Data[5][-const:], label="z component", s=10)
         
 def bluetooth_Connect(BT_Object, IMU_Address, port):
 
     try:
         BT_Object.connect((IMU_Address, port))
+        print(BT_Object.recv(15))
 
-    except exception as e:
-        print("Bluetooth connection failed: " + e)
+    except Exception as e:
+        print("Bluetooth connection failed: ",e)
 
-        
+#Generates a sin wave to plot        
+def practice_changeRecording(BT_Object, initialise_IMU):
+    global BT_isRecording
+
+    if BT_isRecording:
+        BT_isRecording = False
+    else:
+        BT_isRecording = True
+        t = threading.Thread(target=read_generated_Data, name="read_Thread", daemon=True)
+        t.start()
+
+    print(BT_isRecording)
+
 def BT_changeRecording(BT_Object, initialise_IMU):
     global BT_isRecording
 
@@ -99,15 +116,15 @@ def BT_changeRecording(BT_Object, initialise_IMU):
         BT_isRecording = False
     else:
         BT_isRecording = True
-        t = threading.Thread(target=read_Data, name="read_Thread", daemon=True)
-##        t = threading.Thread(target=read_Bluetooth_Data, args=(BT_Object, initialise_IMU),
-##                             name="read_Thread", daemon=True)
+        t = threading.Thread(target=read_Bluetooth_Data,
+                             args=(BT_Object, initialise_IMU, start_Bytes, packet_length),
+                             name="read_Thread", daemon=True)
         t.start()
 
     print(BT_isRecording)
 
 
-def read_Data():
+def read_generated_Data():
     global IMU_Data
     global timestamp
     
@@ -123,29 +140,39 @@ def read_Data():
         time.sleep(0.005)
         inc += 1
         
-def read_Bluetooth_Data(BT_Object, initialise_IMU):
+def read_Bluetooth_Data(BT_Object, initialise_IMU, start_Bytes, packet_length):
     global IMU_Data
     global timestamp
     
-    print(s.recv(15))
     BT_Object.send(initialise_IMU)
-        
+    
+    packet = np.zeros(packet_length-3, dtype="int")
+
+    #Incrementer to append to timestamp, which is the x axis for our plots
     inc = 0
+    
     while BT_isRecording:
-        IMU_Data[0].append(math.sin(inc/(2*math.pi)))
-        IMU_Data[1].append(math.sin((inc + (10*math.pi/3))/(2*math.pi)))
-        IMU_Data[2].append(math.sin((inc + (20*math.pi/3))/(2*math.pi)))
-        IMU_Data[3].append(math.sin(inc/(2*math.pi)))
-        IMU_Data[4].append(math.sin((inc + (10*math.pi/3))/(2*math.pi)))
-        IMU_Data[5].append(math.sin((inc + (20*math.pi/3))/(2*math.pi)))
-        timestamp.append(inc)
-        time.sleep(0.005)
-        inc += 1      
+
+        IMUPacket = BT_Object.recv(3)
         
-        
-    
-    
-        
+        if IMUPacket.hex() == start_Bytes:
+            # if it is, record the next 38 bytes
+            for j in range (0, packet_length-3):
+                packet[j] = int(BT_Object.recv(1).hex(),16)
+            IMU_Data[0].append(twos_comp(packet[14] | (packet[15] << 8), 16))
+            IMU_Data[1].append(twos_comp(packet[16] | (packet[17] << 8), 16))
+            IMU_Data[2].append(twos_comp(packet[18] | (packet[19] << 8), 16))
+            IMU_Data[3].append(twos_comp(packet[2] | (packet[3] << 8), 16))
+            IMU_Data[4].append(twos_comp(packet[4] | (packet[5] << 8), 16))
+            IMU_Data[5].append(twos_comp(packet[6] | (packet[7] << 8), 16))
+
+            timestamp.append(inc)
+            inc += 1
+
+        time.sleep(0.016)
+
+
+              
 class IMU_ML_App(tk.Tk):
 
     def __init__(self, *args, **kwargs):
@@ -210,7 +237,10 @@ class Livestream_Data_Page(tk.Frame):
         button_Home = tk.Button(self, text="Home",
                                command=lambda: controller.show_frame(Main_Page))
         button_Home.pack()        
-        button_Record = tk.Button(self, text="Generate",
+        button_Generate = tk.Button(self, text="Generate",
+                               command=lambda: practice_changeRecording(BT_Object, initialise_IMU))
+        button_Generate.pack()               
+        button_Record = tk.Button(self, text="Record",
                                command=lambda: BT_changeRecording(BT_Object, initialise_IMU))
         button_Record.pack()
 
