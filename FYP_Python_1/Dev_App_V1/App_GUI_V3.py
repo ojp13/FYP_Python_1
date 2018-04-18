@@ -15,7 +15,8 @@ import numpy as np
 import math
 import time
 from twos_Comp import twos_comp
-import pickle
+from scipy.integrate import simps
+from scipy.integrate import cumtrapz
 
 LARGE_FONT = ("Verdana", 12)
 NORM_FONT = ("Verdana", 10)
@@ -41,6 +42,9 @@ BT_Object = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
 #Constants to allow for movement of data in app
 BT_isRecording = False
 IMU_Data_Key = ["x acceleration", "y acceleration", "z acceleration", "x gyroscope", "y gyroscope", "z gyroscope"]
+movement_features_key = ["x total disp.", "y total disp.", "z total disp.", "x total rot.", "y total rot.", "z total rot.",
+                         "class label"]
+features_df = pd.DataFrame(columns=movement_features_key)
 timestamp = []
 movement_rawdata_collected = []
 classlabel = 0 #Has to be specified for the popup window functions to work
@@ -58,7 +62,133 @@ a2.set_ylim([-36000, 36000])
 a2.set_ylabel("Angular Acc.")
 a2.set_xlabel("Time")
 
+#Constants to keep track of settings
+feature_normalisation = True
 
+def create_feature_array(movement_rawdata_collected):
+    global features_df
+
+    num_samples = len(movement_rawdata_collected)
+    x_totaldisp = np.zeros(num_samples)
+    y_totaldisp = np.zeros(num_samples)
+    z_totaldisp = np.zeros(num_samples)
+    x_totalrot = np.zeros(num_samples)
+    y_totalrot = np.zeros(num_samples)
+    z_totalrot = np.zeros(num_samples)
+    classlabels = np.zeros(num_samples, dtype=int)
+
+    for i in range(num_samples):
+        x_velocity = cumtrapz(movement_rawdata_collected[i]["x acceleration"][:])
+        x_totaldisp[i] = simps(x_velocity)
+        y_velocity = cumtrapz(movement_rawdata_collected[i]["y acceleration"][:])
+        y_totaldisp[i] = simps(y_velocity)
+        z_velocity = cumtrapz(movement_rawdata_collected[i]["z acceleration"][:])
+        z_totaldisp[i] = simps(z_velocity)
+        
+        x_rot_velocity = cumtrapz(movement_rawdata_collected[i]["x gyroscope"][:])
+        x_totalrot[i] = simps(x_rot_velocity)
+        y_rot_velocity = cumtrapz(movement_rawdata_collected[i]["y gyroscope"][:])
+        y_totalrot[i] = simps(y_rot_velocity)
+        z_rot_velocity = cumtrapz(movement_rawdata_collected[i]["z gyroscope"][:])
+        z_totalrot[i] = simps(z_rot_velocity)
+
+        classlabels[i] = int(movement_rawdata_collected[i]["Class Label"][0])
+        
+    if feature_normalisation: #If feature normalisation is set to true
+        s = sum(x_totaldisp)
+        x_totaldisp = [float(i)/s for i in x_totaldisp]
+        s = sum(y_totaldisp)
+        y_totaldisp = [float(i)/s for i in y_totaldisp]
+        s = sum(z_totaldisp)
+        z_totaldisp = [float(i)/s for i in z_totaldisp]
+        s = sum(x_totalrot)
+        x_totalrot= [float(i)/s for i in x_totalrot]
+        s = sum(y_totalrot)
+        y_totalrot= [float(i)/s for i in y_totalrot]
+        s = sum(z_totalrot)
+        z_totalrot= [float(i)/s for i in z_totalrot]
+  
+
+    features_df["x total disp."] = x_totaldisp
+    features_df["y total disp."] = y_totaldisp
+    features_df["z total disp."] = z_totaldisp
+    features_df["x total rot."] = x_totalrot
+    features_df["y total rot."] = y_totalrot
+    features_df["z total rot."] = z_totalrot
+    features_df["class label"] = classlabels
+
+    print(features_df)
+
+def save_feature_array(features_df):
+    global filename
+
+    #Popup window to get the user desired filename for the feature array
+    filename_entry = tk.Tk()
+    filename_entry.wm_title("Filename?")
+    label = ttk.Label(filename_entry, text = "What is the name of the file you would like to save the feature array to?")
+    label.pack(side="top", fill="x", pady=10)
+    e1 = ttk.Entry(filename_entry) #Entry widget for tkinter, user input
+    e1.pack()
+    e1.focus_set() #setting the focus
+
+    #Have to make this function in order to get info from the e frame
+    def callback_filename():
+        global filename
+
+        filename = (e1.get()) #Will get whatever was typed into the popup
+        filename_entry.destroy()
+        filename_entry.quit()  
+
+    #Add a button to get the entered text into a variable 
+    b = ttk.Button(filename_entry, text="Submit", width=10, command=callback_filename)
+    b.pack()
+    filename_entry.mainloop() #Required to make the popup window appear
+
+    filename = filename + ".pickle"
+
+    pickle_out = open(filename,"wb") #We would like to open a file to save data to
+    pickle.dump(features_df, pickle_out) #Saves the list to a pickle file
+    pickle_out.close() #Close the file to avoid mistakes
+
+def clear_feature_array():
+    global features_df
+
+    features_df.drop(features_df.index, inplace=True)
+
+
+def display_feature_array(features_df):
+    print(features_df)
+
+
+def load_feature_array():
+    global features_df   
+
+    #Popup window to get the user desired filename for the raw data
+    filename_entry = tk.Tk()
+    filename_entry.wm_title("Filename?")
+    label = ttk.Label(filename_entry, text = "What is the name of the file you would like to load your feature array from?\nPlease include pickle suffix")
+    label.pack(side="top", fill="x", pady=10)
+    
+    e1 = ttk.Entry(filename_entry) #Entry widget for tkinter, user input
+    e1.pack()
+    e1.focus_set() #setting the focus
+
+    #Have to make this function in order to get info from the e frame
+    def callback_filename():
+        global filename
+
+        filename = (e1.get()) #Will get whatever was typed into the popup
+        filename_entry.destroy()
+        filename_entry.quit()  
+
+    #Add a button to get the entered text into a variable 
+    b = ttk.Button(filename_entry, text="Submit", width=10, command=callback_filename)
+    b.pack()
+    filename_entry.mainloop() #Required to make the popup window appear
+
+    pickle_in = open(filename,"rb") #We would like to open a file to read data from
+    features_df = pickle.load(pickle_in)
+    
 
 def plot_rawdata(movement_rawdata_collected):
     global rawdata_index
@@ -111,10 +241,20 @@ def plot_rawdata(movement_rawdata_collected):
     #We have to redraw the plot
     f.canvas.draw()
 
-def load_rawdata():
+#If the user has loaded some data to plot, but doesn't want to append to it
+def clear_rawdata():
     global movement_rawdata_collected
 
-    
+    movement_rawdata_collected = []
+
+#In case the user made a mistake during recording
+def clear_last_entry():
+    global movement_rawdata_collected
+
+    del movement_rawdata_collected[-1]
+
+def load_rawdata():
+    global movement_rawdata_collected   
 
     #Popup window to get the user desired filename for the raw data
     filename_entry = tk.Tk()
@@ -174,7 +314,6 @@ def save_rawdata(movement_rawdata_collected):
     pickle.dump(movement_rawdata_collected, pickle_out) #Saves the list to a pickle file
     pickle_out.close() #Close the file to avoid mistakes  
 
-    
 
 def bluetooth_Connect(BT_Object, IMU_Address, port):
 
@@ -184,6 +323,7 @@ def bluetooth_Connect(BT_Object, IMU_Address, port):
 
     except Exception as e:
         popupmsg("Bluetooth connection failed: " + str(e) + "     \nIf error is 'File descriptor in bad state', reset IMU and App")
+
 
 def BT_changeRecording(BT_Object, initialise_IMU):
     global BT_isRecording
@@ -198,6 +338,7 @@ def BT_changeRecording(BT_Object, initialise_IMU):
         t.start()
 
     print(BT_isRecording)
+
         
 def read_Bluetooth_Data(BT_Object, initialise_IMU, start_Bytes, packet_length, IMU_Data_Key):
     global timestamp
@@ -332,7 +473,6 @@ class Main_Page(tk.Frame):
                                command=lambda: controller.show_frame(Play_Page))
         button_PP.pack()
         
-
 class Display_Data_Page(tk.Frame):
 
     def __init__(self, parent, controller):
@@ -382,6 +522,9 @@ class Collect_Move_Data_Page(tk.Frame):
         button_Record = tk.Button(self, text="Record",
                                command=lambda: BT_changeRecording(BT_Object, initialise_IMU))
         button_Record.pack()
+        button_Clear_Last_Entry = tk.Button(self, text="Clear Last Entry",
+                               command=lambda: clear_last_entry())
+        button_Clear_Last_Entry.pack()
 
 class Manage_Stored_Data_Page(tk.Frame):
 
@@ -398,6 +541,21 @@ class Manage_Stored_Data_Page(tk.Frame):
         button_Load = tk.Button(self, text="Load Raw Data",
                                command=lambda: load_rawdata())
         button_Load.pack()
+        button_Clear = tk.Button(self, text="Clear Raw Data",
+                               command=lambda: clear_rawdata())
+        button_Clear.pack()        
+        button_Save_FeatureArray = tk.Button(self, text="Save Feature Array",
+                               command=lambda: save_feature_array(features_df))
+        button_Save_FeatureArray.pack()
+        button_Load_FeatureArray = tk.Button(self, text="Load Feature Array",
+                               command=lambda: load_feature_array())
+        button_Load_FeatureArray.pack()
+        button_Clear_FeatureArray = tk.Button(self, text="Clear Feature Array",
+                               command=lambda: clear_feature_array())
+        button_Clear_FeatureArray.pack()        
+        button_Display_FeatureArray = tk.Button(self, text="Display Feature Array",
+                               command=lambda: display_feature_array(features_df))
+        button_Display_FeatureArray.pack() 
         
 
 class Train_Classifier_Page(tk.Frame):
@@ -409,6 +567,9 @@ class Train_Classifier_Page(tk.Frame):
         button_Home = tk.Button(self, text="Home",
                                command=lambda: controller.show_frame(Main_Page))
         button_Home.pack()
+        button_FeatureArray = tk.Button(self, text="Create Feature Array",
+                               command=lambda: create_feature_array(movement_rawdata_collected))
+        button_FeatureArray.pack()
 
 class Analyse_Classifier_Page(tk.Frame):
 
