@@ -12,7 +12,6 @@ from matplotlib import style
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
-from matplotlib.finance import candlestick_ohlc
 
 import urllib
 import json
@@ -269,8 +268,6 @@ def addTopIndicator(what):
         tk.mainloop()
 
     elif what == "macd":
-        global topIndicator
-        global DatCounter
 
         topIndicator = "macd"
         DatCounter = 9000
@@ -316,8 +313,6 @@ def addBottomIndicator(what):
         tk.mainloop()
 
     elif what == "macd":
-        global bottomIndicator
-        global DatCounter
 
         bottomIndicator = "macd"
         DatCounter = 9000
