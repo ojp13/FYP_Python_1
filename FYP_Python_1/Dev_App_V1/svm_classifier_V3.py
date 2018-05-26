@@ -3,19 +3,42 @@
 import matplotlib.pyplot as plt
 from matplotlib import style
 import numpy as np
+import pickle
 style.use('ggplot')
 
 class Support_Vector_Machine:
-    def __init__(self, visualization=True): #Visualisation is in case we want to plot our classifier
-        self.visualization = visualization
-        self.colors = {1:"r",-1:"b"}
-        if self.visualization:
-            self.fig = plt.figure()
-            self.ax = self.fig.add_subplot(1,1,1)
+    def __init__(self, features_df):
+        #Extracting data from the dataframe
 
-    def fit(self, data):
-        # Training the algorithm based on fed in feature data
-        self.data = data
+        y = features_df.loc[:,"class label"] #Y is an array with dimensions [1, num_samples]
+
+        num_samples = len(y)
+        
+        features = list(features_df) #Returns the column headings/feature names (w/ class label col)
+        features.pop() #Removes the last class label column
+        self.num_features = len(features)
+        
+        data_dict_positive = [] #Empty list to store feature sets from positive samples in
+        data_dict_negative = []
+        feature_set = [] #An empty list to store individual sample feature sets into
+
+
+        for yi in range(num_samples):
+            feature_set.clear()
+            for feature in features: #Creates the individual feature sets for each samples
+                feature_set.append(features_df.loc[yi, feature])
+
+            if features_df.loc[yi,"class label"] == 1: #If the class label is 1
+                data_dict_positive.append(feature_set) #Append the featureset to the collection of positive featuresets
+
+            else:
+                data_dict_negative.append(feature_set)
+
+        data_dict = {-1:np.array(data_dict_negative), 1:np.array(data_dict_positive)}
+
+        self.data = data_dict
+
+    def fit(self):
         
         #The aim of this bit of code is to choose the best values for the vectors w and b that will guarantee
         #The best performance on future data. This is equivalent to choosing the decision boundary/separating
@@ -52,6 +75,9 @@ class Support_Vector_Machine:
         b_range_multiple = 5
         b_multiple = 5
         latest_optimum = self.max_feature_value*10
+
+        w = np.zeros([self.num_features])
+        w = [latest_optimum for i in self.num_features]
 
         for step in step_sizes:
             w = np.array([latest_optimum, latest_optimum])
@@ -94,11 +120,39 @@ class Support_Vector_Machine:
 
         return classification
         
+filename = "/home/pi/FYP_Python_1/FYP_Python_1/Dev_App_V1/featurearray_2.pickle"
+pickle_in = open(filename,"rb") #We would like to open a file to read data from
+features_df = pickle.load(pickle_in)
+pickle_in.close()
 
-data_dict = {-1:np.array([[1,7]
-                          [2,8]
-                          [3,8],])
-             ,1:np.array([[5,1]
-                          [6,-1]
-                          [7,3],])}
+
+SVM = Support_Vector_Machine(features_df)
+
+print(SVM.data)
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

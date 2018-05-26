@@ -17,6 +17,7 @@ import time
 from twos_Comp import twos_comp
 from scipy.integrate import simps
 from scipy.integrate import cumtrapz
+from sklearn.svm import SVC
 
 LARGE_FONT = ("Verdana", 12)
 NORM_FONT = ("Verdana", 10)
@@ -42,14 +43,17 @@ BT_Object = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
 #Constants to allow for movement of data in app
 BT_isRecording = False
 IMU_Data_Key = ["x acceleration", "y acceleration", "z acceleration", "x gyroscope", "y gyroscope", "z gyroscope"]
-movement_features_key = ["x total disp.", "y total disp.", "z total disp.", "x total rot.", "y total rot.", "z total rot.",
+movement_features_key = ["x Total Displacement", "y Total Displacement", "z Total Displacement",
+                         "x Total Rotation", "y Total Rotation", "z Total Rotation",
                          "class label"]
 features_df = pd.DataFrame(columns=movement_features_key)
+features_index = [0,1,2,3,4,5]
 timestamp = []
 movement_rawdata_collected = []
 classlabel = 0 #Has to be specified for the popup window functions to work
-filename = "" #Has to be spicified for popup window to work
-rawdata_index = 0 #Has to be spicified for popup window to work
+filename = "" #Has to be specified for popup window to work
+rawdata_index = 0 #Has to be specified for popup window to work
+svm = None
 
 #Plotting of figures
 f = plt.figure()
@@ -64,9 +68,102 @@ a2.set_xlabel("Time")
 
 #Constants to keep track of settings
 feature_normalisation = True
+feature_normalisation_factor = 1
 
+def classify_movement():
+    #First need to collect data, then extract features, then predict based on those features
+    global movement_rawdata_collected
+
+    classify_screen = tk.Tk()
+    classify_screen.wm_title("Classifying given data")
+
+    label = ttk.Label(classify_screen, text="Make a movement for the classifier to classify",
+                      font=NORM_FONT)
+    label.pack(side="top", fill="x", pady=10)
+    B1 = ttk.Button(classify_screen, text="Record", command = lambda:
+                    BT_changeRecording(BT_Object, initialise_IMU, B1, Testing=True))
+    B1.pack()
+
+    classify_screen.mainloop()
+
+    
+
+def train_classifier(features_df, features_index):
+    global svm
+
+##    features_headings = [] #For getting the correct column headings for extracting from the DF
+##    
+##    for feature_index in features_index:
+##        features_headings.append(movement_features_key[feature_index])
+##
+##    print(features_headings)
+    
+        
+    y = features_df.iloc[:, -1].values
+    X = features_df.iloc[:, features_index].values
+
+    print(X)
+    
+    svm = SVC(kernel="linear", C=5.0, random_state=1)
+    svm.fit(X, y)
+
+    print("SVM Trained")
+
+def toggle(feature_index, button):
+    global features_index
+
+    if feature_index not in features_index:
+        features_index.append(feature_index)
+        button.config(text="Active")
+
+    else:
+        features_index.remove(feature_index)
+        button.config(text="Inactive")
+
+    features_index = sorted(features_index)
+
+def check_features_index():
+    print(features_index)   
+   
+def create_feature_vector(features_index):
+    #For creating a feature vector from a single set of data (classifying a movement)
+    global movement_rawdata_collected
+    
+    x_velocity = cumtrapz(movement_rawdata_collected[-1]["x acceleration"][:])
+    x_totaldisp = simps(x_velocity)
+    y_velocity = cumtrapz(movement_rawdata_collected[-1]["y acceleration"][:])
+    y_totaldisp = simps(y_velocity)
+    z_velocity = cumtrapz(movement_rawdata_collected[-1]["z acceleration"][:])
+    z_totaldisp = simps(z_velocity)
+    
+    x_rot_velocity = cumtrapz(movement_rawdata_collected[-1]["x gyroscope"][:])
+    x_totalrot = simps(x_rot_velocity)
+    y_rot_velocity = cumtrapz(movement_rawdata_collected[-1]["y gyroscope"][:])
+    y_totalrot = simps(y_rot_velocity)
+    z_rot_velocity = cumtrapz(movement_rawdata_collected[-1]["z gyroscope"][:])
+    z_totalrot = simps(z_rot_velocity)
+
+    if feature_normalisation: #If feature normalisation is set to true
+        x_totaldisp = x_totaldisp/feature_normalisation_factor
+        y_totaldisp = y_totaldisp/feature_normalisation_factor
+        z_totaldisp = z_totaldisp/feature_normalisation_factor
+        x_totalrot = x_totalrot/feature_normalisation_factor
+        y_totalrot = y_totalrot/feature_normalisation_factor
+        z_totalrot = z_totalrot/feature_normalisation_factor
+
+    X_all_features = [x_totaldisp, y_totaldisp, z_totaldisp, x_totalrot, y_totalrot, y_totalrot]
+    X = [] #Empty list to store important features in
+
+    for feature_index in features_index:
+        X.append(X_all_features[feature_index])
+
+    del movement_rawdata_collected[-1]
+
+    return X
+    
 def create_feature_array(movement_rawdata_collected):
     global features_df
+    global feature_normalisation_factor
 
     num_samples = len(movement_rawdata_collected)
     x_totaldisp = np.zeros(num_samples)
@@ -93,28 +190,24 @@ def create_feature_array(movement_rawdata_collected):
         z_totalrot[i] = simps(z_rot_velocity)
 
         classlabels[i] = int(movement_rawdata_collected[i]["Class Label"][0])
-        
+
+    feature_normalisation_factor = (sum(x_totaldisp) + sum(y_totaldisp) + sum(z_totaldisp) + sum(x_totalrot)
+                                    + sum(y_totalrot) + sum(z_totalrot)) / (6 * num_samples)
     if feature_normalisation: #If feature normalisation is set to true
-        s = sum(x_totaldisp)
-        x_totaldisp = [float(i)/s for i in x_totaldisp]
-        s = sum(y_totaldisp)
-        y_totaldisp = [float(i)/s for i in y_totaldisp]
-        s = sum(z_totaldisp)
-        z_totaldisp = [float(i)/s for i in z_totaldisp]
-        s = sum(x_totalrot)
-        x_totalrot= [float(i)/s for i in x_totalrot]
-        s = sum(y_totalrot)
-        y_totalrot= [float(i)/s for i in y_totalrot]
-        s = sum(z_totalrot)
-        z_totalrot= [float(i)/s for i in z_totalrot]
+        x_totaldisp = [float(i)/feature_normalisation_factor for i in x_totaldisp]
+        y_totaldisp = [float(i)/feature_normalisation_factor for i in y_totaldisp]
+        z_totaldisp = [float(i)/feature_normalisation_factor for i in z_totaldisp]
+        x_totalrot= [float(i)/feature_normalisation_factor for i in x_totalrot]
+        y_totalrot= [float(i)/feature_normalisation_factor for i in y_totalrot]
+        z_totalrot= [float(i)/feature_normalisation_factor for i in z_totalrot]
   
 
-    features_df["x total disp."] = x_totaldisp
-    features_df["y total disp."] = y_totaldisp
-    features_df["z total disp."] = z_totaldisp
-    features_df["x total rot."] = x_totalrot
-    features_df["y total rot."] = y_totalrot
-    features_df["z total rot."] = z_totalrot
+    features_df["x Total Displacement"] = x_totaldisp
+    features_df["y Total Displacement"] = y_totaldisp
+    features_df["z Total Displacement"] = z_totaldisp
+    features_df["x Total Rotation"] = x_totalrot
+    features_df["y Total Rotation"] = y_totalrot
+    features_df["z Total Rotation"] = z_totalrot
     features_df["class label"] = classlabels
 
     print(features_df)
@@ -188,7 +281,7 @@ def load_feature_array():
 
     pickle_in = open(filename,"rb") #We would like to open a file to read data from
     features_df = pickle.load(pickle_in)
-    
+    pickle_in.close()
     
 
 def plot_rawdata(movement_rawdata_collected):
@@ -230,12 +323,12 @@ def plot_rawdata(movement_rawdata_collected):
     a2.set_ylim([-36000, 36000])
     
     #Adding data to axes
-    a.scatter(timeaxis[:], data_dict["x acceleration"][:], label="x acceleration", s=15, color="red")
-    a.scatter(timeaxis[:], data_dict["y acceleration"][:], label="y acceleration", s=15, color="green")
-    a.scatter(timeaxis[:], data_dict["z acceleration"][:], label="z acceleration", s=15, color="blue")
-    a2.scatter(timeaxis[:], data_dict["x gyroscope"][:], label="x gyroscope", s=15, color="red")
-    a2.scatter(timeaxis[:], data_dict["y gyroscope"][:], label="y gyroscope", s=15, color="green")
-    a2.scatter(timeaxis[:], data_dict["z gyroscope"][:], label="z gyroscope", s=15, color="blue")   
+    a.scatter(timeaxis[:], data_dict["x acceleration"][:], label="x acceleration", s=10, color="red")
+    a.scatter(timeaxis[:], data_dict["y acceleration"][:], label="y acceleration", s=10, color="green")
+    a.scatter(timeaxis[:], data_dict["z acceleration"][:], label="z acceleration", s=10, color="blue")
+    a2.scatter(timeaxis[:], data_dict["x gyroscope"][:], label="x gyroscope", s=10, color="red")
+    a2.scatter(timeaxis[:], data_dict["y gyroscope"][:], label="y gyroscope", s=10, color="green")
+    a2.scatter(timeaxis[:], data_dict["z gyroscope"][:], label="z gyroscope", s=10, color="blue")   
     a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3, ncol=3, borderaxespad=0)
     a2.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3, ncol=3, borderaxespad=0)
 
@@ -282,6 +375,7 @@ def load_rawdata():
 
     pickle_in = open(filename,"rb") #We would like to open a file to read data from
     movement_rawdata_collected = pickle.load(pickle_in)
+    pickle_in.close()
     
 
 def save_rawdata(movement_rawdata_collected):
@@ -326,25 +420,28 @@ def bluetooth_Connect(BT_Object, IMU_Address, port):
         popupmsg("Bluetooth connection failed: " + str(e) + "     \nIf error is 'File descriptor in bad state', reset IMU and App")
 
 
-def BT_changeRecording(BT_Object, initialise_IMU):
+def BT_changeRecording(BT_Object, initialise_IMU, button, Testing=False):
     global BT_isRecording
 
     if BT_isRecording:
         BT_isRecording = False
+        button.config(text="Record")
+        
     else:
         BT_isRecording = True
+        button.config(text="Stop Recording")
         t = threading.Thread(target=read_Bluetooth_Data,
-                             args=(BT_Object, initialise_IMU, start_Bytes, packet_length, IMU_Data_Key),
+                             args=(BT_Object, initialise_IMU, start_Bytes, packet_length, IMU_Data_Key, Testing),
                              name="read_Thread", daemon=True)
         t.start()
-
-    print(BT_isRecording)
-
         
-def read_Bluetooth_Data(BT_Object, initialise_IMU, start_Bytes, packet_length, IMU_Data_Key):
+def read_Bluetooth_Data(BT_Object, initialise_IMU, start_Bytes, packet_length, IMU_Data_Key, Testing=False):
+    #Testing specifies whether you are collecting training data or data that is to be classified by the alg
     global timestamp
     global movement_rawdata_collected
     global classlabel
+    global class_label_prediction
+    
     
     BT_Object.send(initialise_IMU)
     
@@ -382,32 +479,39 @@ def read_Bluetooth_Data(BT_Object, initialise_IMU, start_Bytes, packet_length, I
         i += 1
 
     #Popup window to get the class label for the movement
-    classlabel_entry = tk.Tk()
-    classlabel_entry.wm_title("Class Label?")
-    label = ttk.Label(classlabel_entry, text = "What is the class label of the movement just completed? (1/2/3/4)")
-    label.pack(side="top", fill="x", pady=10)
-    e = ttk.Entry(classlabel_entry) #Entry widget for tkinter, user input
-    e.pack()
-    e.focus_set() #setting the focus
 
-    #Have to make this function in order to get info from the e frame
-    def callback():
-        global classlabel
+    if Testing == False:
+        classlabel_entry = tk.Tk()
+        classlabel_entry.wm_title("Class Label?")
+        label = ttk.Label(classlabel_entry, text = "What is the class label of the movement just completed? (1/2/3/4)")
+        label.pack(side="top", fill="x", pady=10)
+        e = ttk.Entry(classlabel_entry) #Entry widget for tkinter, user input
+        e.pack()
+        e.focus_set() #setting the focus
 
-        classlabel = (e.get()) #Will get whatever was typed into the popup
-        classlabel_entry.destroy()
-        classlabel_entry.quit()
+        #Have to make this function in order to get info from the e frame
+        def callback():
+            global classlabel
 
-    #Add a button to get the entered text into a variable (classlabel)
-    b = ttk.Button(classlabel_entry, text="Submit", width=10, command=callback)
-    b.pack()
-    classlabel_entry.mainloop() #Required to make the popup window appear
+            classlabel = (e.get()) #Will get whatever was typed into the popup
+            classlabel_entry.destroy()
+            classlabel_entry.quit()
 
-    movement_rawdata["Class Label"] = classlabel #Add the class label to the dictionary
+        #Add a button to get the entered text into a variable (classlabel)
+        b = ttk.Button(classlabel_entry, text="Submit", width=10, command=callback)
+        b.pack()
+        classlabel_entry.mainloop() #Required to make the popup window appear
+
+        movement_rawdata["Class Label"] = classlabel #Add the class label to the dictionary
+        
     #Appends the data dictionary to a list
     movement_rawdata_collected.append(movement_rawdata)
-    #print(movement_rawdata_collected[-1])
-    #print(movement_rawdata_collected[-1]["Class Label"])
+
+    if Testing == True:
+        X = create_feature_vector(features_index)
+        class_label_prediction = svm.predict(X)
+        print(class_label_prediction)
+        
 
 def popupmsg(msg):
     popup = tk.Tk()
@@ -431,6 +535,16 @@ class IMU_ML_App(tk.Tk):
         container.pack(side="top", fill="both", expand="true")
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
+
+        menubar = tk.Menu(container) #Creating a menu, putting it in the container
+        filemenu = tk.Menu(menubar, tearoff=0) #Creating a filemenu
+        filemenu.add_command(label="Save settings", command = lambda: popupmsg("Not supported just yet!"))
+        #adding a command to the filemenu pupupmsg is a user defined function
+        filemenu.add_separator() # adds a separating bar to the menu
+        filemenu.add_command(label="Exit", command = quit)
+        menubar.add_cascade(label="File", menu=filemenu)
+
+        tk.Tk.config(self, menu=menubar) #Adds the menubar
 
         self.frames = {}
 
@@ -521,7 +635,7 @@ class Collect_Move_Data_Page(tk.Frame):
         button_Home.pack()
                        
         button_Record = tk.Button(self, text="Record",
-                               command=lambda: BT_changeRecording(BT_Object, initialise_IMU))
+                               command=lambda: BT_changeRecording(BT_Object, initialise_IMU, button_Record))
         button_Record.pack()
         button_Clear_Last_Entry = tk.Button(self, text="Clear Last Entry",
                                command=lambda: clear_last_entry())
@@ -564,13 +678,65 @@ class Train_Classifier_Page(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="""Training Classifier""", font=LARGE_FONT)
-        label.pack(pady=10, padx=10)
+        label.grid(row=0, column=0)
         button_Home = tk.Button(self, text="Home",
                                command=lambda: controller.show_frame(Main_Page))
-        button_Home.pack()
+        button_Home.grid(row=0, column=4)
         button_FeatureArray = tk.Button(self, text="Create Feature Array",
                                command=lambda: create_feature_array(movement_rawdata_collected))
-        button_FeatureArray.pack()
+        button_FeatureArray.grid(row=2, column=3)
+
+        label0 = tk.Label(self, text=movement_features_key[0], font=NORM_FONT)
+        label0.grid(row=4, column=1)
+        button_Feature0 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(0, button_Feature0))
+        button_Feature0.grid(row=4, column=2)
+
+        label1 = tk.Label(self, text=movement_features_key[1], font=NORM_FONT)
+        label1.grid(row=5, column=1)
+        button_Feature1 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(1, button_Feature1))
+        button_Feature1.grid(row=5, column=2)
+
+        label2 = tk.Label(self, text=movement_features_key[2], font=NORM_FONT)
+        label2.grid(row=6, column=1)
+        button_Feature2 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(2, button_Feature2))
+        button_Feature2.grid(row=6, column=2)
+
+        label3 = tk.Label(self, text=movement_features_key[3], font=NORM_FONT)
+        label3.grid(row=7, column=1)
+        button_Feature3 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(3, button_Feature3))
+        button_Feature3.grid(row=7, column=2)
+
+        label4 = tk.Label(self, text=movement_features_key[4], font=NORM_FONT)
+        label4.grid(row=8, column=1)
+        button_Feature4 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(4, button_Feature4))
+        button_Feature4.grid(row=8, column=2)
+
+        label5 = tk.Label(self, text=movement_features_key[5], font=NORM_FONT)
+        label5.grid(row=9, column=1)
+        button_Feature5 = tk.Button(self, text = "Active",
+                                    command = lambda: toggle(5, button_Feature5))
+        button_Feature5.grid(row=9, column=2)
+
+        button_check_features_index = tk.Button(self, text = "Check Features Index",
+                                    command = lambda: check_features_index())
+        button_check_features_index.grid(row=10, column=2)
+
+        button_train_classifier = tk.Button(self, text = "Train Classifier",
+                                    command = lambda: train_classifier(features_df, features_index))
+        button_train_classifier.grid(row=11, column=2)
+
+        button_classify_movement = tk.Button(self, text = "Classify Movement",
+                                    command = lambda: classify_movement())
+        button_classify_movement.grid(row=12, column=2)
+        
+
+
+        
 
 class Analyse_Classifier_Page(tk.Frame):
 

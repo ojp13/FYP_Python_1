@@ -188,6 +188,7 @@ def load_feature_array():
 
     pickle_in = open(filename,"rb") #We would like to open a file to read data from
     features_df = pickle.load(pickle_in)
+    pickle_in.close()
     
 
 def plot_rawdata(movement_rawdata_collected):
