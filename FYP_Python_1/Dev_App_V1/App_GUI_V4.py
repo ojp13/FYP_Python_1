@@ -89,15 +89,7 @@ def classify_movement():
     
 
 def train_classifier(features_df, features_index):
-    global svm
-
-##    features_headings = [] #For getting the correct column headings for extracting from the DF
-##    
-##    for feature_index in features_index:
-##        features_headings.append(movement_features_key[feature_index])
-##
-##    print(features_headings)
-    
+    global svm    
         
     y = features_df.iloc[:, -1].values
     X = features_df.iloc[:, features_index].values
