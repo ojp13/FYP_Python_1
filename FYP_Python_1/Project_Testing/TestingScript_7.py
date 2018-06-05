@@ -1,0 +1,227 @@
+#Testing the performance of a classifier induced from raw data
+#This script allows for changing of test set size
+#KNN Classifier, varying k and number of classes
+
+import pickle
+import threading
+import pandas as pd
+import numpy as np
+import math
+import time
+from scipy.integrate import simps
+from scipy.integrate import cumtrapz
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from matplotlib import pyplot as plt
+
+#Settings
+smoothing = True
+N = 20 #Number of points in rolling average
+n_neighbors = 1
+normalization = True
+test_size = 0.4 #Has to be a multiple of 0.04
+test_steps = int(((1 - test_size) / 0.04) + 1)
+
+#Adjust to drop different classes from DF
+sample_drop_index1 = [ i for i in range(75,100)] 
+##sample_drop_index2 = [ i for i in range(75,100)]
+##
+##sample_drop_index1.extend(sample_drop_index2)
+
+
+BT_isRecording = False
+IMU_Data_Key = ["x acceleration", "y acceleration", "z acceleration", "x gyroscope", "y gyroscope", "z gyroscope"]
+movement_features_key = ["x Total Displacement", "y Total Displacement", "z Total Displacement",
+                         "x Total Rotation", "y Total Rotation", "z Total Rotation",
+                         "x Peak Displacement", "y Peak Displacement", "z Peak Displacement",
+                         "x Peak Rotation", "y Peak Rotation", "z Peak Rotation",
+                         "class label"]
+
+features_df = pd.DataFrame(columns=movement_features_key)
+features_index = [0,1,2,3,4,5,6,7,8,9,10,11]
+features_number = str(len(features_index)) + " Features"
+movement_rawdata_collected = []
+
+
+filename = "\Testing1_4.pickle"
+filename = "C:\FYP_Python_1\FYP_Python_1\Project_Testing" + filename
+
+#Loading the raw data file
+pickle_in = open(filename,"rb") #We would like to open a file to read data from
+movement_rawdata_collected = pickle.load(pickle_in)
+pickle_in.close()
+
+#smoothing the raw data
+
+if smoothing:
+    movement_rawdata_collected_unsmoothed = movement_rawdata_collected
+    num_samples = len(movement_rawdata_collected)
+
+    movement_rawdata_collected = []
+    movement_rawdata = {}
+
+    for sample in range(num_samples):
+        
+        for Key in IMU_Data_Key:
+            movement_rawdata[Key] = np.convolve(movement_rawdata_collected_unsmoothed[sample][Key][:], np.ones((N,))/N, mode='valid')
+
+        movement_rawdata["Class Label"] = movement_rawdata_collected_unsmoothed[sample]["Class Label"]
+        movement_rawdata_collected.append(movement_rawdata)
+        movement_rawdata = {}
+    
+#Plotting Smoothed Data
+
+##rawdata_index = 1        
+##
+##data_dict = movement_rawdata_collected[rawdata_index]
+##
+##timeaxis = range(len(data_dict["x acceleration"]))
+##
+##
+###Adding data to axes
+##plt.scatter(timeaxis[:], data_dict["x acceleration"][:], label="x acceleration", s=10, color="red")
+##plt.scatter(timeaxis[:], data_dict["y acceleration"][:], label="y acceleration", s=10, color="green")
+##plt.scatter(timeaxis[:], data_dict["z acceleration"][:], label="z acceleration", s=10, color="blue")
+##plt.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3, ncol=3, borderaxespad=0)
+##plt.xlabel("Time")
+##plt.ylabel("Linear Acc.")
+##plt.show()
+     
+       
+    
+
+#Creating the feature array
+
+
+x_totaldisp = np.zeros(num_samples)
+y_totaldisp = np.zeros(num_samples)
+z_totaldisp = np.zeros(num_samples)
+x_totalrot = np.zeros(num_samples)
+y_totalrot = np.zeros(num_samples)
+z_totalrot = np.zeros(num_samples)
+x_peakvel = np.zeros(num_samples)
+y_peakvel = np.zeros(num_samples)
+z_peakvel = np.zeros(num_samples)
+x_peakrot = np.zeros(num_samples)
+y_peakrot = np.zeros(num_samples)
+z_peakrot = np.zeros(num_samples)
+
+classlabels = np.zeros(num_samples, dtype=int)
+
+for i in range(num_samples):
+    x_velocity = cumtrapz(movement_rawdata_collected[i]["x acceleration"][:])
+    x_peakvel[i] = abs(max(x_velocity, key=abs))
+    x_totaldisp[i] = simps(x_velocity)
+    y_velocity = cumtrapz(movement_rawdata_collected[i]["y acceleration"][:])
+    y_peakvel[i] = abs(max(y_velocity, key=abs))
+    y_totaldisp[i] = simps(y_velocity)
+    z_velocity = cumtrapz(movement_rawdata_collected[i]["z acceleration"][:])
+    z_peakvel[i] = abs(max(z_velocity, key=abs))
+    z_totaldisp[i] = simps(z_velocity)
+    
+    x_rot_velocity = cumtrapz(movement_rawdata_collected[i]["x gyroscope"][:])
+    x_peakrot[i] = abs(max(x_rot_velocity, key=abs))
+    x_totalrot[i] = simps(x_rot_velocity)
+    y_rot_velocity = cumtrapz(movement_rawdata_collected[i]["y gyroscope"][:])
+    y_peakrot[i] = abs(max(y_rot_velocity, key=abs))
+    y_totalrot[i] = simps(y_rot_velocity)
+    z_rot_velocity = cumtrapz(movement_rawdata_collected[i]["z gyroscope"][:])
+    z_peakrot[i] = abs(max(z_rot_velocity, key=abs))
+    z_totalrot[i] = simps(z_rot_velocity)
+
+    classlabels[i] = int(movement_rawdata_collected[i]["Class Label"][0])
+
+feature_normalisation_factor = (sum(x_totaldisp) + sum(y_totaldisp) + sum(z_totaldisp)
+                                + sum(x_totalrot) + sum(y_totalrot) + sum(z_totalrot))/(6 * num_samples)
+
+feature_normalisation_factor_peaks = (sum(x_peakvel) + sum(y_peakvel) + sum(z_peakvel)
+                                + sum(x_peakrot) + sum(y_peakrot) + sum(z_peakrot))/(6 * num_samples)
+
+if normalization: #If feature normalisation is set to true
+    x_totaldisp = [float(i)/feature_normalisation_factor for i in x_totaldisp]
+    x_peakvel = [float(i)/feature_normalisation_factor_peaks for i in x_peakvel]
+    y_totaldisp = [float(i)/feature_normalisation_factor for i in y_totaldisp]
+    y_peakvel = [float(i)/feature_normalisation_factor_peaks for i in y_peakvel]
+    z_totaldisp = [float(i)/feature_normalisation_factor for i in z_totaldisp]
+    z_peakvel = [float(i)/feature_normalisation_factor_peaks for i in z_peakvel]
+    x_totalrot= [float(i)/feature_normalisation_factor for i in x_totalrot]
+    x_peakrot = [float(i)/feature_normalisation_factor_peaks for i in x_peakrot]
+    y_totalrot= [float(i)/feature_normalisation_factor for i in y_totalrot]
+    y_peakrot = [float(i)/feature_normalisation_factor_peaks for i in y_peakrot]    
+    z_totalrot= [float(i)/feature_normalisation_factor for i in z_totalrot]
+    z_peakrot = [float(i)/feature_normalisation_factor_peaks for i in z_peakrot]
+
+features_df["x Total Displacement"] = x_totaldisp
+features_df["y Total Displacement"] = y_totaldisp
+features_df["z Total Displacement"] = z_totaldisp
+features_df["x Total Rotation"] = x_totalrot
+features_df["y Total Rotation"] = y_totalrot
+features_df["z Total Rotation"] = z_totalrot
+features_df["x Peak Displacement"] = x_peakvel
+features_df["y Peak Displacement"] = y_peakvel
+features_df["z Peak Displacement"] = z_peakvel
+features_df["x Peak Rotation"] = x_peakrot
+features_df["y Peak Rotation"] = y_peakrot
+features_df["z Peak Rotation"] = z_peakrot
+features_df["class label"] = classlabels
+
+features_df.drop(features_df.index[sample_drop_index1], inplace=True)
+
+y = features_df.iloc[:, -1].values
+X = features_df.iloc[:, features_index].values
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size,
+                                                    random_state=0, stratify=y)
+
+X_testfixed = X_test
+y_testfixed = y_test
+
+features_number += ", " +str(len(np.unique(features_df["class label"][:]))) + " Classes"
+
+training_set_size = []
+class_error = []
+class_error_peak = []
+k = []
+
+for n_neighbors in range(1,7):
+    for train_size in range(3, test_steps):
+        test_size = (1 - 0.04 * train_size)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size,
+                                                        random_state=42, shuffle=True)
+
+        knn = KNeighborsClassifier(n_neighbors=n_neighbors, p=2, metric="minkowski")
+        knn.fit(X_train, y_train)
+        X_predicted = knn.predict(X_testfixed)
+        counter = 0
+        for sample_number in range(len(X_predicted)):
+            if X_predicted[sample_number] != y_testfixed[sample_number]:
+                counter += 1
+
+        training_set_size.append((1-test_size)*100)
+        class_error.append((len(X_predicted)-counter)*100/float((len(X_predicted))))
+
+        knn = None
+        X_predicted = []
+
+    
+    print(class_error)
+    class_error_peak.append(max(class_error))
+    k.append(n_neighbors)
+    class_error = []
+            
+plt.scatter(k, class_error_peak, s=10, marker="x", label=features_number)
+plt.xlabel("Value of k")
+plt.ylabel("Average Classification Accuracy (%)")
+plt.ylim([58,102])
+plt.title("Average accuracy of knn classifier over varying training set sizes, \nfor different values of k")
+plt.legend(loc=4, ncol=3, borderaxespad=2)
+plt.show()
+
+
+
+
+
+
+
+
