@@ -38,8 +38,9 @@ movement_rawdata_collected = []
 
 #Constants to keep track of settings
 
-filename = "\Testing1_4.pickle"
-filename = "C:\FYP_Python_1\FYP_Python_1\Project_Testing" + filename
+filename = "/Testing1_4.pickle"
+#filename = "C:\FYP_Python_1\FYP_Python_1\Project_Testing" + filename
+filename = "/home/pi/FYP_Python_1/FYP_Python_1/Project_Testing" + filename
 
 #Loading the raw data file
 pickle_in = open(filename,"rb") #We would like to open a file to read data from
